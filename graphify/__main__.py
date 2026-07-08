@@ -650,6 +650,12 @@ _PLATFORM_CONFIG: dict[str, dict] = {
         "skill_dst": Path(".config") / "devin" / "skills" / "graphify" / "SKILL.md",
         "claude_md": False,
     },
+    "bob": {
+        "skill_file": "skill-bob.md",
+        "skill_dst": Path(".bob") / "skills" / "graphify" / "SKILL.md",
+        "claude_md": False,
+        "skill_refs": "bob",
+    },
 }
 
 # CLI-only platform aliases, resolved to a real _PLATFORM_CONFIG key before
@@ -2336,7 +2342,7 @@ def main() -> None:
         print("Usage: graphify <command>")
         print()
         print("Commands:")
-        print("  install [--platform P]  copy skill to platform config dir (claude|windows|codebuddy|codex|opencode|aider|amp|agents|claw|droid|trae|trae-cn|gemini|cursor|antigravity|hermes|kiro|pi|devin)")
+        print("  install [--platform P]  copy skill to platform config dir (claude|windows|bob|codebuddy|codex|opencode|aider|amp|agents|claw|droid|trae|trae-cn|gemini|cursor|antigravity|hermes|kiro|pi|devin)")
         print("  uninstall               remove graphify from all detected platforms in one shot")
         print("    --purge                 also delete graphify-out/ directory")
         print("  path \"A\" \"B\"            shortest path between two nodes in graph.json")
@@ -2371,6 +2377,7 @@ def main() -> None:
         print("  cluster-only <path>     rerun clustering on an existing graph.json and regenerate report")
         print("    --no-viz                skip graph.html generation (useful for >5000 node graphs / CI)")
         print("    --graph <path>          path to graph.json (default <path>/graphify-out/graph.json)")
+        print("    --format=<fmt>          output format: 'toon' (default, ~33% smaller) or 'json' (JSON-only mode)")
         print("    --no-label              keep 'Community N' placeholders (skip LLM community naming)")
         print("    --backend=<name>        backend to use for community naming (default: auto-detect)")
         print("    --model=<name>          model to use for community naming")
@@ -3508,6 +3515,8 @@ def main() -> None:
         label_model = _model_arg.split("=", 1)[1] if _model_arg else None
         _min_cs_arg = next((a for a in sys.argv if a.startswith("--min-community-size=")), None)
         min_community_size = int(_min_cs_arg.split("=")[1]) if _min_cs_arg else 3
+        _format_arg = next((a for a in sys.argv if a.startswith("--format=")), None)
+        output_format = _format_arg.split("=", 1)[1] if _format_arg else "toon"
         args = sys.argv[2:]
         watch_path: Path | None = None
         graph_override: Path | None = None
@@ -3570,7 +3579,7 @@ def main() -> None:
             suggest_questions,
         )
         from graphify.report import generate
-        from graphify.export import to_json, to_html
+        from graphify.export import to_json, to_toon, to_html
 
         stages = _StageTimer(co_timing)
         print("Loading existing graph...")
@@ -3752,7 +3761,14 @@ def main() -> None:
             json.dumps(analysis, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-        to_json(G, communities, str(out / "graph.json"), community_labels=labels)
+        # Write graph in requested format (default: TOON)
+        if output_format == "json":
+            # JSON-only mode (opt-in via --format=json)
+            to_json(G, communities, str(out / "graph.json"), community_labels=labels)
+        else:
+            # TOON mode (default): write both TOON (primary) and JSON (compatibility)
+            to_toon(G, communities, str(out / "graph.toon"), community_labels=labels)
+            to_json(G, communities, str(out / "graph.json"), community_labels=labels)
         labels_path.write_text(json.dumps({str(k): v for k, v in labels.items()}, ensure_ascii=False), encoding="utf-8")
         # Membership signatures beside the labels so a later cluster-only can detect
         # which communities changed and avoid reusing a stale label (see reuse above).
