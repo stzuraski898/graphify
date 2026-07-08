@@ -54,10 +54,17 @@ That's it. You get **three files**:
 graphify-out/
 ├── graph.html       open in any browser — click nodes, filter, search
 ├── GRAPH_REPORT.md  the highlights: key concepts, surprising connections, suggested questions
-└── graph.json       the full graph — query it anytime without re-reading your files
+├── graph.toon       the full graph in TOON format (33-41% smaller, optimized for LLMs)
+└── graph.json       JSON version for tool compatibility
 ```
 
-**Works in** Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, and 15+ more — [pick your platform](#install).
+**Reading TOON files in Python:**
+```python
+from graphify.toon import decode
+data = decode(open('graphify-out/graph.toon').read())
+```
+
+**Works in** Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, Bob, and 15+ more — [pick your platform](#install).
 
 ---
 
@@ -203,6 +210,7 @@ for example `graphify claude install --project` or `graphify codex install --pro
 |----------|----------------|
 | Claude Code (Linux/Mac) | `graphify install` |
 | Claude Code (Windows) | `graphify install` (auto-detected) or `graphify install --platform windows` |
+| IBM Bob | `graphify install --platform bob` |
 | CodeBuddy | `graphify install --platform codebuddy` |
 | Codex | `graphify install --platform codex` |
 | OpenCode | `graphify install --platform opencode` |
@@ -272,6 +280,7 @@ Run this once in your project after building a graph:
 | Platform | Command |
 |----------|---------|
 | Claude Code | `graphify claude install` |
+| IBM Bob | `graphify bob install` |
 | CodeBuddy | `graphify codebuddy install` |
 | Codex | `graphify codex install` |
 | OpenCode | `graphify opencode install` |

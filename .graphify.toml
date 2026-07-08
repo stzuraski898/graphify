@@ -1,0 +1,12 @@
+# Graphify configuration for this repository
+# This file documents preferred settings for running graphify on this codebase
+
+[output]
+# Use TOON format for more efficient LLM token usage
+# TOON (Token-Optimized Object Notation) achieves ~33% size reduction vs JSON
+# while maintaining the same data model
+format = "toon"
+
+[extraction]
+# Default settings for this repo
+# mode = "deep"  # Uncomment for thorough extraction with richer INFERRED edges
