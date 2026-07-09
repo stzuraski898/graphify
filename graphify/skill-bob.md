@@ -39,13 +39,33 @@ Turn any folder of files into a navigable knowledge graph with community detecti
 /graphify query "<question>"                          # BFS traversal - broad context
 /graphify query "<question>" --dfs                    # DFS - trace a specific path
 /graphify query "<question>" --budget 1500            # cap answer at N tokens
+/graphify query "<question>" --global                 # query across all registered projects in global graph
 /graphify path "AuthModule" "Database"                # shortest path between two concepts
+/graphify path "AuthModule" "Database" --global       # find path across all registered projects
 /graphify explain "SwinTransformer"                   # plain-language explanation of a node
+/graphify explain "SwinTransformer" --global          # explain using global graph context
+/graphify affected "ConfigManager" --global           # find affected nodes across all projects
+/graphify global add ./graphify-out/graph.json        # register current project to global graph
+/graphify global add ./graphify-out/graph.json --as myproject  # register with custom tag
+/graphify global list                                 # list all registered projects
+/graphify global remove <tag>                         # remove a project from global graph
+/graphify global path                                 # print path to global graph file
 ```
 
 ## What graphify is for
 
-Drop any folder of code, docs, papers, images, or video into graphify and get a queryable knowledge graph. Persistent across sessions, honest audit trail (EXTRACTED/INFERRED/AMBIGUOUS), community detection surfaces cross-document connections you wouldn't think to ask about.
+graphify is built around Andrej Karpathy's /raw folder workflow: drop anything into a folder - papers, tweets, screenshots, code, notes - and get a structured knowledge graph that shows you what you didn't know was connected.
+
+Three things it does that your AI assistant alone cannot:
+1. **Persistent graph** - relationships are stored in `graphify-out/graph.json` and survive across sessions. Ask questions weeks later without re-reading everything.
+2. **Honest audit trail** - every edge is tagged EXTRACTED, INFERRED, or AMBIGUOUS. You know what was found vs invented.
+3. **Cross-document surprise** - community detection finds connections between concepts in different files that you would never think to ask about directly.
+
+Use it for:
+- A codebase you're new to (understand architecture before touching anything)
+- A reading list (papers + tweets + notes → one navigable graph)
+- A research corpus (citation graph + concept graph in one)
+- Your personal /raw folder (drop everything in, let it grow, query it)
 
 ## What You Must Do When Invoked
 
@@ -62,6 +82,43 @@ If the path argument starts with `https://github.com/` or `http://github.com/`, 
 Follow these steps in order. Do not skip steps.
 
 For detailed implementation instructions, see the reference files in the `references/` directory alongside this skill file.
+
+## For /graphify query
+
+When `graphify-out/graph.json` already exists and the user asks a question about the corpus, answer from the graph rather than rebuilding it.
+
+**IMPORTANT:** Always use the graphify CLI command. Do NOT attempt to write your own Python code for graph traversal - it will hit escaping bugs. Use the CLI:
+
+```bash
+graphify query "<question>"
+# or with flags:
+graphify query "<question>" --dfs
+graphify query "<question>" --budget 1500
+graphify query "<question>" --global
+```
+
+Answer using only what the graph output contains, and quote `source_location` when citing a specific fact.
+
+**CRITICAL: Preserving --global flag in follow-up queries:** If the initial query used `--global`, ALL subsequent or refined queries in the same conversation MUST also include `--global`. When you decide to search for more specific information or refine your query, always check if the original command had `--global` and preserve it. Example:
+- Initial: `graphify query "TMS statistics" --global`
+- Follow-up: `graphify query "TMS management API" --global` ← MUST include --global
+- Wrong: `graphify query "TMS management API"` ← Missing --global will cause "graph file not found" error
+
+For that vocab-expansion step, the BFS/DFS traversal modes, the `--budget` cap, the NetworkX fallback, `save-result` feedback, and the `/graphify path` and `/graphify explain` flows, see `../skills/bob/references/query.md`.
+
+## For native BOB.md integration
+
+Run once per project to make graphify always-on in Bob sessions:
+
+```bash
+graphify bob install
+```
+
+This writes a `## graphify` section to the local `BOB.md` that instructs Bob to check the graph before answering codebase questions and rebuild it after code changes. No manual `/graphify` needed in future sessions.
+
+```bash
+graphify bob uninstall  # remove the section
+```
 
 ## Honesty Rules
 
