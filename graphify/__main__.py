@@ -13,7 +13,7 @@ from pathlib import Path
 try:
     from importlib.metadata import version as _pkg_version
 
-    __version__ = _pkg_version("graphifyy")
+    __version__ = _pkg_version("graphify")
 except Exception:
     __version__ = "unknown"
 
@@ -4302,12 +4302,15 @@ def main() -> None:
         out_dir = graph_path.parent
 
         if subcmd == "html":
-            from graphify.export import to_html as _to_html
+            from graphify.export import to_html as _to_html, to_html_topdown as _to_html_topdown
             if no_viz:
                 html_target = out_dir / "graph.html"
+                topdown_target = out_dir / "graph-topdown.html"
                 if html_target.exists():
                     html_target.unlink()
-                print("--no-viz: skipped graph.html")
+                if topdown_target.exists():
+                    topdown_target.unlink()
+                print("--no-viz: skipped graph.html and graph-topdown.html")
             else:
                 # Over-cap fallback (#1019): force the community-aggregation
                 # path so the oversized graph still renders a usable artifact.
@@ -4316,6 +4319,11 @@ def main() -> None:
                          community_labels=labels or None, node_limit=_effective_node_limit)
                 if G.number_of_nodes() <= _effective_node_limit:
                     print(f"graph.html written - open in any browser, no server needed")
+                # Also generate hierarchical top-down layout
+                _to_html_topdown(G, communities, str(out_dir / "graph-topdown.html"),
+                                community_labels=labels or None, node_limit=_effective_node_limit)
+                if G.number_of_nodes() <= _effective_node_limit:
+                    print(f"graph-topdown.html written - hierarchical layout with most connected nodes at top")
                 if _over_cap:
                     sys.exit(0)
 

@@ -26,7 +26,7 @@ from graphify.paths import GRAPHIFY_OUT as _GRAPHIFY_OUT
 try:
     from importlib.metadata import version as _pkg_version
 
-    _EXTRACTOR_VERSION = _pkg_version("graphifyy")
+    _EXTRACTOR_VERSION = _pkg_version("graphify")
 except Exception:
     _EXTRACTOR_VERSION = "unknown"
 
