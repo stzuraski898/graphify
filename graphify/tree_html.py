@@ -233,12 +233,21 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
       stroke-width: 2.5px;
     }}
     .node text {{ /* Base style for the <text> container */
-      font: 13px 'Segoe UI', sans-serif;
+      font: 18px 'Segoe UI', sans-serif;
+      font-weight: 600;
       paint-order: stroke fill; /* Ensures text is readable over lines */
       stroke: #fff; /* White halo */
-      stroke-width: 3px; /* Halo thickness */
+      stroke-width: 5px; /* Halo thickness */
       stroke-linejoin: round;
-      stroke-opacity: 0.85; /* Halo opacity */
+      stroke-opacity: 0.95; /* Halo opacity */
+    }}
+    .node text tspan {{
+      fill: #1a1a1a; /* Darker text for better contrast */
+    }}
+    .node-count {{
+      font-size: 13px;
+      font-weight: 400;
+      fill: #666 !important;
     }}
     .link {{
       fill: none;
@@ -265,15 +274,17 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
     function transformData(jsonData) {{
         // Helper function to recursively build the children structure
         function processNode(node, parentL1StageName) {{
+            // Clean up the display name - remove file extensions and simplify
             let displayName = node.name;
-            // Append total_count if it exists and is not already in the name
-            if (node.total_count !== undefined) {{
-                if (!/\(Total Count: \d+\)$/.test(displayName)) {{
-                    displayName += ` (Total Count: ${{node.total_count}})`;
-                }}
-            }}
-
-            const newNode = {{ name: displayName }};
+            
+            // Remove common file extensions
+            displayName = displayName.replace(/\.(cc|cpp|h|hpp|c|py|js|ts)$/i, '');
+            
+            // Store count separately instead of in the name
+            const newNode = {{
+                name: displayName,
+                count: node.total_count
+            }};
 
             if (parentL1StageName === "Root") {{
                  newNode.originalStageName = node.name;
@@ -289,13 +300,9 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
             return newNode;
         }}
 
-        let rootDisplayName = jsonData.name;
-        if (jsonData.total_count !== undefined && !/\(Total Count: \d+\)$/.test(rootDisplayName)) {{
-            rootDisplayName += ` (Total Count: ${{jsonData.total_count}})`;
-        }}
-
         return {{
-            name: rootDisplayName,
+            name: jsonData.name,
+            count: jsonData.total_count,
             originalStageName: "Root",
             children: (jsonData.children || []).map(child => processNode(child, "Root"))
         }};
@@ -336,13 +343,13 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
     const svgElement = d3.select("#tree-svg");
     const initialSvgWidth = +svgElement.attr("width");
     const initialSvgHeight = +svgElement.attr("height");
-    const margin = {{ top: 40, right: 120, bottom: 80, left: 450 }};
+    const margin = {{ top: 40, right: 120, bottom: 80, left: 500 }};
     let width = initialSvgWidth - margin.left - margin.right;
     let height = initialSvgHeight - margin.top - margin.bottom;
     const duration = 500;
     let nodeCounter = 0;
     const g = svgElement.append("g").attr("transform", `translate(${{margin.left}},${{margin.top}})`);
-    const treemap = d3.tree().nodeSize([40, 0]);
+    const treemap = d3.tree().nodeSize([50, 0]);
     let rootNode = d3.hierarchy(treeData, d => d.children);
     rootNode.x0 = 0;
     rootNode.y0 = 0;
@@ -376,7 +383,7 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
       svgElement.transition().duration(duration / 2).attr("height", neededHeight);
       g.transition().duration(duration / 2).attr("transform", `translate(${{margin.left}},${{margin.top - minX + 40}})`);
 
-      nodes.forEach(d => {{ d.y = d.depth * 400; }}); // Adjust horizontal separation if needed
+      nodes.forEach(d => {{ d.y = d.depth * 450; }}); // Adjust horizontal separation if needed
 
       const node = g.selectAll('g.node').data(nodes, d => d.id || (d.id = ++nodeCounter));
       const nodeEnter = node.enter().append('g')
@@ -389,17 +396,17 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
 
       nodeEnter.append('text')
         .attr('dy', '.35em')
-        .attr('x', d => d.children || d._children ? -14 : 14)
+        .attr('x', d => d.children || d._children ? -16 : 16)
         .attr('text-anchor', d => d.children || d._children ? 'end' : 'start')
         .style("fill-opacity", 1e-6)
-        .call(wrapText, 380);
+        .call(wrapText, 420);
 
       const nodeUpdate = nodeEnter.merge(node);
       nodeUpdate.transition().duration(duration)
         .attr('transform', d => `translate(${{d.y}},${{d.x}})`)
         .attr('class', d => "node" + (d.children ? " node--internal" : " node--leaf") + (d._children ? " node--internal _children" : ""));
 
-      nodeUpdate.select('circle').attr('r', 8.5)
+      nodeUpdate.select('circle').attr('r', 10)
         .style('fill', d => {{
             let palette;
             if (d.depth === 0) {{
@@ -424,7 +431,7 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
             }}
             return palette.stroke;
         }});
-      nodeUpdate.select('text').style("fill-opacity", 1).call(wrapText, 380);
+      nodeUpdate.select('text').style("fill-opacity", 1).call(wrapText, 420);
 
       const nodeExit = node.exit().transition().duration(duration).attr('transform', d => `translate(${{source.y}},${{source.x}})`).remove();
       nodeExit.select('circle').attr('r', 1e-6);
@@ -448,15 +455,11 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
     function diagonal(s, d) {{ return `M ${{s.y}} ${{s.x}} C ${{(s.y + d.y) / 2}} ${{s.x}}, ${{(s.y + d.y) / 2}} ${{d.x}}, ${{d.y}} ${{d.x}}`; }}
 
     function wrapText(textElements, maxWidth) {{
-        const textPartColors = {{
-            name: '#343a40',
-            count: '#0056b3'
-        }};
-        const countRegex = /(\s\(Total Count: \d+\))$/;
-
         textElements.each(function () {{
             const textD3 = d3.select(this);
-            const originalNodeText = textD3.datum().data.name;
+            const nodeData = textD3.datum().data;
+            const originalNodeText = nodeData.name;
+            const count = nodeData.count;
             const x = parseFloat(textD3.attr("x") || 0);
             const initialDy = textD3.attr("dy");
             const textAnchor = textD3.attr("text-anchor");
@@ -464,72 +467,41 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
 
             textD3.text(null);
 
-            let namePart = originalNodeText;
-            let countPartText = "";
+            // Split text into words for wrapping
+            const words = originalNodeText.split(/\s+/).filter(Boolean);
 
-            const countMatch = originalNodeText.match(countRegex);
-            if (countMatch && originalNodeText.endsWith(countMatch[0])) {{
-                namePart = originalNodeText.substring(0, originalNodeText.length - countMatch[0].length).trim();
-                countPartText = countMatch[0].trim();
-            }}
-
-            const tokens = [];
-            namePart.split(/\s+/).filter(Boolean).forEach(word => {{
-                tokens.push({{ text: word, type: 'name' }});
-            }});
-            if (countPartText) {{
-                tokens.push({{ text: countPartText, type: 'count' }});
-            }}
-
-            if (tokens.length === 0 && originalNodeText) {{
-                tokens.push({{ text: originalNodeText, type: 'name' }});
-            }}
-
-            let currentTspan = textD3.append("tspan").attr("x", x).attr("dy", initialDy);
+            // Create main text line
+            let currentTspan = textD3.append("tspan")
+                .attr("x", x)
+                .attr("dy", initialDy);
             if (textAnchor === "end") currentTspan.attr("text-anchor", "end");
 
-            let lineTokens = [];
+            let currentLine = [];
+            
+            for (let i = 0; i < words.length; i++) {{
+                currentLine.push(words[i]);
+                currentTspan.text(currentLine.join(" "));
 
-            for (let i = 0; i < tokens.length; i++) {{
-                const tokenObj = tokens[i];
-
-                lineTokens.push(tokenObj);
-                currentTspan.text(lineTokens.map(t => t.text).join(" "));
-
-                if (currentTspan.node().getComputedTextLength() > maxWidth && lineTokens.length > 1) {{
-                    lineTokens.pop();
-
-                    currentTspan.text(null);
-                    lineTokens.forEach((prevToken, idx) => {{
-                        currentTspan.append("tspan")
-                            .text((idx > 0 ? " " : "") + prevToken.text)
-                            .style("fill", textPartColors[prevToken.type] || textPartColors.name)
-                            .style("font-weight", prevToken.type === 'count' ? "bold" : "normal");
-                    }});
-
-                    lineTokens = [tokenObj];
-                    currentTspan = textD3.append("tspan").attr("x", x).attr("dy", lineHeight + "em");
+                if (currentTspan.node().getComputedTextLength() > maxWidth && currentLine.length > 1) {{
+                    currentLine.pop();
+                    currentTspan.text(currentLine.join(" "));
+                    
+                    currentLine = [words[i]];
+                    currentTspan = textD3.append("tspan")
+                        .attr("x", x)
+                        .attr("dy", lineHeight + "em")
+                        .text(words[i]);
                     if (textAnchor === "end") currentTspan.attr("text-anchor", "end");
                 }}
             }}
 
-            currentTspan.text(null);
-            lineTokens.forEach((token, idx) => {{
-                currentTspan.append("tspan")
-                    .text((idx > 0 ? " " : "") + token.text)
-                    .style("fill", textPartColors[token.type] || textPartColors.name)
-                    .style("font-weight", token.type === 'count' ? "bold" : "normal");
-            }});
-
-            if (textD3.selectAll("tspan > tspan").empty() && textD3.select("tspan").text().length === 0 && originalNodeText) {{
-                let t = textD3.select("tspan");
-                let displayText = originalNodeText;
-                t.text(displayText).style("fill", textPartColors.name);
-                if (t.node() && t.node().getComputedTextLength() > maxWidth && displayText.length > 20) {{
-                    let estimatedChars = Math.floor(maxWidth / (t.node().getComputedTextLength()/displayText.length) );
-                    displayText = displayText.substring(0, Math.max(0, estimatedChars - 3)) + "...";
-                    t.text(displayText);
-                }}
+            // Add count as a small badge on a new line if it exists
+            if (count !== undefined && count > 0) {{
+                textD3.append("tspan")
+                    .attr("x", x)
+                    .attr("dy", lineHeight + "em")
+                    .attr("class", "node-count")
+                    .text(`(${{count}})`);
             }}
         }});
     }}
