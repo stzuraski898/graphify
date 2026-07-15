@@ -1,0 +1,21 @@
+# Ignore documentation and test files to create a code-only graph
+*.md
+docs/
+tests/
+worked/
+*.png
+*.svg
+*.jpg
+*.jpeg
+*.toml
+*.json
+*.txt
+*.rst
+*.lock
+*.sh
+LICENSE
+Dockerfile
+*.egg-info/
+graphify/skill*.md
+graphify/command*.md
+graphify/extractors/MIGRATION.md
