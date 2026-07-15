@@ -58,6 +58,15 @@ graphify-out/
 └── graph.json       JSON version for tool compatibility
 ```
 
+**For large codebases** (1000+ nodes), generate a **focused graph view** that shows one node and its connections at a time:
+
+```bash
+python scripts/generate_focused_graph.py
+# Opens graph-focused.html — search, click, explore without clutter
+```
+
+See [docs/focused-graph-view.md](docs/focused-graph-view.md) for interactive exploration of large graphs.
+
 **Reading TOON files in Python:**
 ```python
 from graphify.toon import decode
